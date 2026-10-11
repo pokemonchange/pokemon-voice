@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -7,8 +8,10 @@
 </head>
 <body>
   <h2>ポケモン音声入力</h2>
-  <p id="status">音声入力を開始してください。</p>
-  <button id="startButton" type="button">音声入力を開始</button>
+  <p id="status">音声入力を準備しています...</p>
+  <button id="startButton" type="button" hidden>
+    音声入力を開始
+  </button>
 
   <script>
     const SpeechRecognition =
@@ -18,26 +21,37 @@
     const status = document.getElementById('status');
     const startButton = document.getElementById('startButton');
 
-    startButton.addEventListener('click', function () {
+    let recognition = null;
+    let isRunning = false;
+    let completed = false;
+
+    function startRecognition() {
       if (!SpeechRecognition) {
-        status.textContent = 'このブラウザは音声認識に対応していません。';
+        status.textContent =
+          'このブラウザは音声認識に対応していません。';
+        startButton.hidden = false;
         return;
       }
 
-      const recognition = new SpeechRecognition();
+      if (isRunning || completed) return;
+
+      recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
       recognition.interimResults = false;
       recognition.continuous = false;
 
-      startButton.disabled = true;
-      status.textContent = 'ポケモン名を話してください。';
+      isRunning = true;
+      startButton.hidden = true;
+      status.textContent = 'ポケモン名を話してください...';
 
       recognition.onresult = function (event) {
         const transcript =
           event.results[0][0].transcript.trim();
 
+        completed = true;
         status.textContent = '認識結果：' + transcript;
 
+        // GAS側の画面に認識結果を返す
         if (window.opener && !window.opener.closed) {
           window.opener.postMessage(
             {
@@ -47,31 +61,50 @@
             '*'
           );
 
-          window.close();
+          status.textContent = '入力結果を元の画面に送信しました。';
+          setTimeout(() => window.close(), 500);
         } else {
-          status.textContent =
-            '認識結果：' + transcript +
-            '（元の画面に戻って手動で入力してください）';
+          status.textContent +=
+            '。元の画面に戻って確認してください。';
+          startButton.hidden = false;
         }
       };
 
       recognition.onerror = function (event) {
+        isRunning = false;
         status.textContent =
-          '音声認識エラー：' + event.error;
-        startButton.disabled = false;
+          '自動開始できませんでした（' + event.error +
+          '）。下のボタンを押してください。';
+        startButton.hidden = false;
       };
 
       recognition.onend = function () {
-        startButton.disabled = false;
+        isRunning = false;
+
+        if (!completed) {
+          startButton.hidden = false;
+          if (status.textContent.includes('話してください')) {
+            status.textContent =
+              '音声認識が終了しました。もう一度開始できます。';
+          }
+        }
       };
 
       try {
         recognition.start();
       } catch (error) {
+        isRunning = false;
         status.textContent =
-          '音声認識を開始できませんでした：' + error.message;
-        startButton.disabled = false;
+          '自動開始できませんでした。下のボタンを押してください。';
+        startButton.hidden = false;
       }
+    }
+
+    startButton.addEventListener('click', startRecognition);
+
+    // ページを開いたら自動で音声認識を開始
+    window.addEventListener('load', function () {
+      startRecognition();
     });
   </script>
 </body>
