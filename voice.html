@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ポケモン音声入力</title>
+</head>
+<body>
+  <h2>ポケモン音声入力</h2>
+  <p id="status">音声入力を開始してください。</p>
+  <button id="startButton" type="button">音声入力を開始</button>
+
+  <script>
+    const SpeechRecognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
+
+    const status = document.getElementById('status');
+    const startButton = document.getElementById('startButton');
+
+    startButton.addEventListener('click', function () {
+      if (!SpeechRecognition) {
+        status.textContent = 'このブラウザは音声認識に対応していません。';
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.interimResults = false;
+      recognition.continuous = false;
+
+      startButton.disabled = true;
+      status.textContent = 'ポケモン名を話してください。';
+
+      recognition.onresult = function (event) {
+        const transcript =
+          event.results[0][0].transcript.trim();
+
+        status.textContent = '認識結果：' + transcript;
+
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(
+            {
+              type: 'POKEMON_VOICE_RESULT',
+              transcript: transcript
+            },
+            '*'
+          );
+
+          window.close();
+        } else {
+          status.textContent =
+            '認識結果：' + transcript +
+            '（元の画面に戻って手動で入力してください）';
+        }
+      };
+
+      recognition.onerror = function (event) {
+        status.textContent =
+          '音声認識エラー：' + event.error;
+        startButton.disabled = false;
+      };
+
+      recognition.onend = function () {
+        startButton.disabled = false;
+      };
+
+      try {
+        recognition.start();
+      } catch (error) {
+        status.textContent =
+          '音声認識を開始できませんでした：' + error.message;
+        startButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
