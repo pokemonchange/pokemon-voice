@@ -34,18 +34,21 @@
 
       const corrections = [
         // ヌオー
-        [/ヌオ/g, 'ヌオー'],
         [/沼王/g, 'ヌオー'],
-        [/ぬおー/g, 'ヌオー'],
+        [/ぬお+/g, 'ヌオー'],
+        [/ヌオ+/g, 'ヌオー'],
 
         // ドオー
-        [/どおー/g, 'ドオー'],
-        [/ドーオ/g, 'ドオー']
+        [/どお+/g, 'ドオー'],
+        [/ドーオ+/g, 'ドオー']
       ];
 
       corrections.forEach(([pattern, replacement]) => {
         text = text.replace(pattern, replacement);
       });
+
+      // 長音「ー」が連続した場合、1つにまとめる
+      text = text.replace(/ー{2,}/g, 'ー');
 
       return text;
     }
@@ -142,7 +145,7 @@
 
           if (status.textContent.includes('話してください')) {
             status.textContent =
-              '音声認識に失敗しました。もう一度開始できます。';
+              '音声認識が終了しました。もう一度開始できます。';
           }
         }
       };
