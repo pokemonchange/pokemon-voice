@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -9,6 +8,7 @@
 <body>
   <h2>ポケモン音声入力</h2>
   <p id="status">音声入力を準備しています...</p>
+
   <button id="startButton" type="button" hidden>
     音声入力を開始
   </button>
@@ -25,10 +25,40 @@
     let isRunning = false;
     let completed = false;
 
+    // ==========================================
+    // ポケモン名の誤認識を補正
+    // ==========================================
+
+    function correctPokemonName(transcript) {
+      let text = transcript.trim();
+
+      const corrections = [
+        // ヌオー
+        [/沼王/g, 'ヌオー'],
+        [/ぬおー/g, 'ヌオー'],
+        [/ヌオ/g, 'ヌオー'],
+
+        // ドオー
+        [/どおー/g, 'ドオー'],
+        [/ドーオ/g, 'ドオー']
+      ];
+
+      corrections.forEach(([pattern, replacement]) => {
+        text = text.replace(pattern, replacement);
+      });
+
+      return text;
+    }
+
+    // ==========================================
+    // 音声認識を開始
+    // ==========================================
+
     function startRecognition() {
       if (!SpeechRecognition) {
         status.textContent =
           'このブラウザは音声認識に対応していません。';
+
         startButton.hidden = false;
         return;
       }
@@ -36,6 +66,7 @@
       if (isRunning || completed) return;
 
       recognition = new SpeechRecognition();
+
       recognition.lang = 'ja-JP';
       recognition.interimResults = false;
       recognition.continuous = false;
@@ -44,12 +75,22 @@
       startButton.hidden = true;
       status.textContent = 'ポケモン名を話してください...';
 
+      // ==========================================
+      // 認識結果を受け取る
+      // ==========================================
+
       recognition.onresult = function (event) {
-        const transcript =
+        const originalTranscript =
           event.results[0][0].transcript.trim();
 
+        // 誤認識を補正
+        const transcript =
+          correctPokemonName(originalTranscript);
+
         completed = true;
-        status.textContent = '認識結果：' + transcript;
+
+        status.textContent =
+          '認識結果：' + transcript;
 
         // GAS側の画面に認識結果を返す
         if (window.opener && !window.opener.closed) {
@@ -61,51 +102,82 @@
             '*'
           );
 
-          status.textContent = '入力結果を元の画面に送信しました。';
+          status.textContent =
+            '入力結果を元の画面に送信しました。';
+
           setTimeout(() => window.close(), 500);
+
         } else {
           status.textContent +=
             '。元の画面に戻って確認してください。';
+
           startButton.hidden = false;
         }
       };
 
+      // ==========================================
+      // エラー処理
+      // ==========================================
+
       recognition.onerror = function (event) {
         isRunning = false;
+
         status.textContent =
-          '自動開始できませんでした（' + event.error +
+          '自動開始できませんでした（' +
+          event.error +
           '）。下のボタンを押してください。';
+
         startButton.hidden = false;
       };
+
+      // ==========================================
+      // 音声認識終了時
+      // ==========================================
 
       recognition.onend = function () {
         isRunning = false;
 
         if (!completed) {
           startButton.hidden = false;
+
           if (status.textContent.includes('話してください')) {
             status.textContent =
-              '音声認識が終了しました。もう一度開始できます。';
+              '音声認識に失敗しました。もう一度開始できます。';
           }
         }
       };
 
+      // ==========================================
+      // 認識開始
+      // ==========================================
+
       try {
         recognition.start();
+
       } catch (error) {
         isRunning = false;
+
         status.textContent =
           '自動開始できませんでした。下のボタンを押してください。';
+
         startButton.hidden = false;
       }
     }
 
-    startButton.addEventListener('click', startRecognition);
+    // ボタンから音声認識を開始
+    startButton.addEventListener(
+      'click',
+      startRecognition
+    );
 
+    // ==========================================
     // ページを開いたら自動で音声認識を開始
+    // ==========================================
+
     window.addEventListener('load', function () {
       startRecognition();
     });
   </script>
 </body>
 </html>
+```
