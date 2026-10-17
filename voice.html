@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -26,81 +27,6 @@
     let completed = false;
 
     // ==========================================
-    // ポケモン名の誤認識を補正
-    // ==========================================
-
-
-function correctPokemonName(transcript) {
-  let text = transcript.trim();
-
-  // 前後の空白・句読点などを除去して照合しやすくする
-  const normalized = text
-    .replace(/[\s　、。,.!?！？・]/g, '')
-    .replace(/ー{2,}/g, 'ー');
-
-  // 短いポケモン名は、認識結果全体を照合して補正
-  const exactCorrections = {
-    // ヌオー
-    'ヌオー': 'ヌオー',
-    'ヌオ': 'ヌオー',
-    'ヌオウ': 'ヌオー',
-    'ぬお': 'ヌオー',
-    'ぬおー': 'ヌオー',
-    'ぬおう': 'ヌオー',
-    '沼王': 'ヌオー',
-
-    // ドオー
-    'ドオー': 'ドオー',
-    'ドオ': 'ドオー',
-    'ドーオ': 'ドオー',
-    'ドオウ': 'ドオー',
-    'どお': 'ドオー',
-    'どおー': 'ドオー',
-    'どおう': 'ドオー',
-    '土王': 'ドオー',
-
-    // ウッウ
-    'ウッウ': 'ウッウ',
-    'ウウ': 'ウッウ',
-    'ウッ': 'ウッウ',
-    'うっう': 'ウッウ',
-    'うう': 'ウッウ',
-    'うっ': 'ウッウ'
-  };
-
-  if (exactCorrections[normalized]) {
-    return exactCorrections[normalized];
-  }
-
-  // 文章中に現れた場合の補正
-  const corrections = [
-    // ヌオー
-    [/沼王/g, 'ヌオー'],
-    [/ぬお+[ーう]*/g, 'ヌオー'],
-    [/ヌオ+[ーう]*/g, 'ヌオー'],
-
-    // ドオー
-    [/土王/g, 'ドオー'],
-    [/どお+[ーう]*/g, 'ドオー'],
-    [/ドー?オ+[ーう]*/g, 'ドオー'],
-
-    // ウッウ
-    [/ウッウ+/g, 'ウッウ'],
-    [/うっう+/g, 'ウッウ']
-  ];
-
-  corrections.forEach(([pattern, replacement]) => {
-    text = text.replace(pattern, replacement);
-  });
-
-  // 長音の連続を1つにまとめる
-  text = text.replace(/ー{2,}/g, 'ー');
-
-  return text;
-}
-
-
-    // ==========================================
     // 音声認識を開始
     // ==========================================
 
@@ -118,7 +44,11 @@ function correctPokemonName(transcript) {
       recognition = new SpeechRecognition();
 
       recognition.lang = 'ja-JP';
-      recognition.interimResults = false;
+
+      // 認識途中の結果も取得できるようにする
+      recognition.interimResults = true;
+
+      // 1回の発話で認識を終了する
       recognition.continuous = false;
 
       isRunning = true;
@@ -130,19 +60,33 @@ function correctPokemonName(transcript) {
       // ==========================================
 
       recognition.onresult = function (event) {
-        const originalTranscript =
-          event.results[0][0].transcript.trim();
+        let transcript = '';
 
-        // 誤認識を補正
-        const transcript =
-          correctPokemonName(originalTranscript);
+        // 確定した認識結果だけを取得
+        for (
+          let i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript;
+          }
+        }
+
+        transcript = transcript.trim();
+
+        // 確定結果がなければ送信しない
+        if (!transcript || completed) return;
 
         completed = true;
 
         status.textContent =
           '認識結果：' + transcript;
 
+        // ==========================================
         // GAS側の画面に認識結果を返す
+        // ==========================================
+
         if (window.opener && !window.opener.closed) {
           window.opener.postMessage(
             {
@@ -155,7 +99,9 @@ function correctPokemonName(transcript) {
           status.textContent =
             '入力結果を元の画面に送信しました。';
 
-          setTimeout(() => window.close(), 500);
+          setTimeout(function () {
+            window.close();
+          }, 500);
 
         } else {
           status.textContent +=
@@ -192,7 +138,7 @@ function correctPokemonName(transcript) {
 
           if (status.textContent.includes('話してください')) {
             status.textContent =
-              '音声認識に失敗しました。もう一度開始できます。';
+              '音声認識に失敗しました。再度音声認識開始する場合は下のボタンを押してください。';
           }
         }
       };
