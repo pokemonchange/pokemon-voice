@@ -29,29 +29,76 @@
     // ポケモン名の誤認識を補正
     // ==========================================
 
-    function correctPokemonName(transcript) {
-      let text = transcript.trim();
 
-      const corrections = [
-        // ヌオー
-        [/沼王/g, 'ヌオー'],
-        [/ぬお+/g, 'ヌオー'],
-        [/ヌオ+/g, 'ヌオー'],
+function correctPokemonName(transcript) {
+  let text = transcript.trim();
 
-        // ドオー
-        [/どお+/g, 'ドオー'],
-        [/ドーオ+/g, 'ドオー']
-      ];
+  // 前後の空白・句読点などを除去して照合しやすくする
+  const normalized = text
+    .replace(/[\s　、。,.!?！？・]/g, '')
+    .replace(/ー{2,}/g, 'ー');
 
-      corrections.forEach(([pattern, replacement]) => {
-        text = text.replace(pattern, replacement);
-      });
+  // 短いポケモン名は、認識結果全体を照合して補正
+  const exactCorrections = {
+    // ヌオー
+    'ヌオー': 'ヌオー',
+    'ヌオ': 'ヌオー',
+    'ヌオウ': 'ヌオー',
+    'ぬお': 'ヌオー',
+    'ぬおー': 'ヌオー',
+    'ぬおう': 'ヌオー',
+    '沼王': 'ヌオー',
 
-      // 長音「ー」が連続した場合、1つにまとめる
-      text = text.replace(/ー{2,}/g, 'ー');
+    // ドオー
+    'ドオー': 'ドオー',
+    'ドオ': 'ドオー',
+    'ドーオ': 'ドオー',
+    'ドオウ': 'ドオー',
+    'どお': 'ドオー',
+    'どおー': 'ドオー',
+    'どおう': 'ドオー',
+    '土王': 'ドオー',
 
-      return text;
-    }
+    // ウッウ
+    'ウッウ': 'ウッウ',
+    'ウウ': 'ウッウ',
+    'ウッ': 'ウッウ',
+    'うっう': 'ウッウ',
+    'うう': 'ウッウ',
+    'うっ': 'ウッウ'
+  };
+
+  if (exactCorrections[normalized]) {
+    return exactCorrections[normalized];
+  }
+
+  // 文章中に現れた場合の補正
+  const corrections = [
+    // ヌオー
+    [/沼王/g, 'ヌオー'],
+    [/ぬお+[ーう]*/g, 'ヌオー'],
+    [/ヌオ+[ーう]*/g, 'ヌオー'],
+
+    // ドオー
+    [/土王/g, 'ドオー'],
+    [/どお+[ーう]*/g, 'ドオー'],
+    [/ドー?オ+[ーう]*/g, 'ドオー'],
+
+    // ウッウ
+    [/ウッウ+/g, 'ウッウ'],
+    [/うっう+/g, 'ウッウ']
+  ];
+
+  corrections.forEach(([pattern, replacement]) => {
+    text = text.replace(pattern, replacement);
+  });
+
+  // 長音の連続を1つにまとめる
+  text = text.replace(/ー{2,}/g, 'ー');
+
+  return text;
+}
+
 
     // ==========================================
     // 音声認識を開始
